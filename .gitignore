@@ -1,0 +1,74 @@
+# .gitignore for NekoDevOS
+
+# Build directories
+build/
+output/
+*.iso
+
+# Temporary files
+*.tmp
+*.temp
+*~
+.*.swp
+.*.swo
+
+# Download logs and temporary downloads
+wget-log
+wget-log.*
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE and editor files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+.project
+.settings/
+
+# Log files
+*.log
+logs/
+
+# Backup files
+*.bak
+*.backup
+*~
+
+# Compressed files (if you want to exclude them)
+# *.zip
+# *.tar.gz
+# *.tar.bz2
+# *.7z
+
+# Personal customization files (users might add their own)
+customization/wallpapers/*.jpg
+customization/wallpapers/*.png
+customization/wallpapers/*.jpeg
+!customization/wallpapers/README.md
+
+# Cache directories
+.cache/
+__pycache__/
+*.pyc
+
+# Secret/sensitive files
+*.key
+*.pem
+secrets/
+.env
+
+# Node modules (if any JS tools are used)
+node_modules/
+
+# Python virtual environments
+venv/
+env/
+.venv/
+
+# System testing artifacts
+test-output/
+scratch/

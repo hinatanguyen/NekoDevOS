@@ -1,0 +1,356 @@
+# NekoDevOS Package List
+# Packages to be installed in the custom Ubuntu distribution
+
+# ============================================================================
+# CORE SYSTEM PACKAGES
+# ============================================================================
+ubuntu-minimal
+ubuntu-standard
+casper
+discover
+laptop-detect
+os-prober
+network-manager
+resolvconf
+net-tools
+wireless-tools
+wpasupplicant
+grub-common
+grub-gfxpayload-lists
+grub-pc
+grub-pc-bin
+grub2-common
+locales
+linux-generic
+
+# ============================================================================
+# DESKTOP ENVIRONMENT - KDE PLASMA
+# ============================================================================
+kde-plasma-desktop
+plasma-workspace
+plasma-nm
+plasma-pa
+kde-config-gtk-style
+kde-config-screenlocker
+powerdevil
+sddm
+sddm-theme-breeze
+
+# Alternative: XFCE (lightweight option - comment out KDE above if using this)
+# xfce4
+# xfce4-goodies
+# lightdm
+# lightdm-gtk-greeter
+
+# ============================================================================
+# WINDOW MANAGERS & COMPOSITORS
+# ============================================================================
+kwin-x11
+picom
+
+# ============================================================================
+# DISPLAY SERVER
+# ============================================================================
+xorg
+xserver-xorg
+xserver-xorg-core
+xserver-xorg-input-all
+xserver-xorg-video-all
+
+# ============================================================================
+# DEVELOPMENT TOOLS
+# ============================================================================
+# Version Control
+git
+git-lfs
+gh
+
+# Editors & IDEs
+vim
+neovim
+nano
+code
+
+# Programming Languages & Runtimes
+python3
+python3-pip
+python3-venv
+nodejs
+npm
+openjdk-17-jdk
+openjdk-17-jre
+golang-go
+ruby
+php
+
+# Build Tools
+build-essential
+cmake
+make
+gcc
+g++
+clang
+gdb
+
+# Containers & Virtualization
+docker.io
+docker-compose
+podman
+
+# Databases
+sqlite3
+mysql-client
+postgresql-client
+
+# ============================================================================
+# TERMINAL & SHELL
+# ============================================================================
+gnome-terminal
+konsole
+terminator
+tilix
+zsh
+fish
+tmux
+screen
+fonts-powerline
+powerline
+
+# ============================================================================
+# SYSTEM UTILITIES
+# ============================================================================
+# File Managers
+dolphin
+thunar
+ranger
+
+# System Monitoring
+htop
+btop
+neofetch
+screenfetch
+glances
+iotop
+nethogs
+
+# Archive Tools
+p7zip-full
+p7zip-rar
+unrar
+unzip
+zip
+tar
+gzip
+bzip2
+
+# Disk Management
+gparted
+gnome-disk-utility
+ncdu
+baobab
+
+# Backup & Sync
+timeshift
+rsync
+rclone
+
+# System Maintenance
+bleachbit
+stacer
+preload
+
+# ============================================================================
+# NETWORKING & INTERNET
+# ============================================================================
+# Browsers
+firefox
+chromium-browser
+
+# Download Managers
+wget
+curl
+aria2
+transmission-gtk
+
+# Network Tools
+nmap
+wireshark
+netcat
+openssh-server
+openssh-client
+sshfs
+
+# VPN
+openvpn
+network-manager-openvpn
+network-manager-openvpn-gnome
+
+# ============================================================================
+# MULTIMEDIA
+# ============================================================================
+# Video Players
+vlc
+mpv
+ffmpeg
+
+# Audio
+pulseaudio
+pavucontrol
+audacity
+spotify-client
+
+# Image Viewers & Editors
+gimp
+inkscape
+krita
+gwenview
+feh
+imagemagick
+
+# Screenshots & Recording
+flameshot
+obs-studio
+kazam
+simplescreenrecorder
+
+# ============================================================================
+# COMMUNICATION
+# ============================================================================
+discord
+telegram-desktop
+thunderbird
+
+# ============================================================================
+# OFFICE & PRODUCTIVITY
+# ============================================================================
+libreoffice
+libreoffice-gtk3
+libreoffice-style-breeze
+okular
+calibre
+
+# ============================================================================
+# THEMES & CUSTOMIZATION
+# ============================================================================
+# Icon Themes
+papirus-icon-theme
+breeze-icon-theme
+numix-icon-theme-circle
+
+# GTK Themes
+arc-theme
+adapta-gtk-theme
+materia-gtk-theme
+
+# Fonts
+fonts-noto
+fonts-noto-color-emoji
+fonts-jetbrains-mono
+fonts-firacode
+fonts-roboto
+fonts-liberation
+fonts-dejavu
+ttf-mscorefonts-installer
+
+# Wallpaper Tools
+variety
+nitrogen
+feh
+
+# Customization Tools
+latte-dock
+plank
+conky-all
+albert
+rofi
+
+# ============================================================================
+# ANIME/WEEB SPECIFIC
+# ============================================================================
+# Anime Streaming (CLI tools)
+ani-cli
+manga-cli
+
+# Japanese Input Method
+ibus
+ibus-mozc
+ibus-anthy
+
+# Japanese Fonts
+fonts-noto-cjk
+fonts-noto-cjk-extra
+fonts-vlgothic
+
+# ============================================================================
+# GAMING (Optional)
+# ============================================================================
+steam
+lutris
+wine
+winetricks
+gamemode
+
+# ============================================================================
+# ACCESSORIES & EXTRAS
+# ============================================================================
+# PDF & Document Tools
+evince
+zathura
+
+# Text Editors
+gedit
+kate
+sublime-text
+
+# Calculator
+kcalc
+gnome-calculator
+
+# Notes
+obsidian
+typora
+
+# Password Manager
+keepassxc
+bitwarden
+
+# Cloud Storage
+nextcloud-desktop
+dropbox
+
+# ============================================================================
+# SYSTEM LIBRARIES & DEPENDENCIES
+# ============================================================================
+libgl1-mesa-glx
+libgl1-mesa-dri
+mesa-utils
+libvulkan1
+vulkan-tools
+ubuntu-restricted-extras
+ubuntu-restricted-addons
+
+# ============================================================================
+# SECURITY
+# ============================================================================
+ufw
+gufw
+clamav
+clamtk
+fail2ban
+
+# ============================================================================
+# DEVELOPMENT EXTRAS
+# ============================================================================
+# API Testing
+postman
+insomnia
+
+# Database GUIs
+dbeaver-ce
+
+# Docker Management
+portainer
+
+# Documentation
+devhelp
+zeal
