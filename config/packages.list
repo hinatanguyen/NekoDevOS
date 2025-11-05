@@ -69,7 +69,7 @@ gh
 vim
 neovim
 nano
-code
+# code  # Requires external Microsoft repository - install manually after boot if needed
 
 # Programming Languages & Runtimes
 python3

@@ -1,0 +1,8 @@
+[Plymouth Theme]
+Name=NekoDevOS
+Description=NekoDevOS custom boot splash with anime cat girl
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/nekodeos
+ScriptFile=/usr/share/plymouth/themes/nekodeos/nekodeos.script

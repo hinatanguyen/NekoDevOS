@@ -37,9 +37,20 @@ apt-get install -y wget curl gnupg2 ca-certificates software-properties-common
 # Add additional repositories
 echo -e "${CYAN}[NEKO]${NC} Adding additional repositories..."
 
-# VS Code repository
-wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > /etc/apt/trusted.gpg.d/packages.microsoft.gpg
-echo "deb [arch=amd64] https://packages.microsoft.com/repos/code stable main" > /etc/apt/sources.list.d/vscode.list
+# VS Code repository (with error handling)
+echo -e "${CYAN}[NEKO]${NC} Adding VS Code repository..."
+if wget -O /tmp/microsoft.asc https://packages.microsoft.com/keys/microsoft.asc 2>/dev/null; then
+    if [ -s /tmp/microsoft.asc ]; then
+        gpg --dearmor < /tmp/microsoft.asc > /etc/apt/trusted.gpg.d/packages.microsoft.gpg 2>/dev/null || true
+        echo "deb [arch=amd64] https://packages.microsoft.com/repos/code stable main" > /etc/apt/sources.list.d/vscode.list
+        echo -e "${GREEN}[NEKO]${NC} VS Code repository added successfully!"
+    else
+        echo -e "${YELLOW}[NEKO]${NC} Warning: Could not download Microsoft GPG key, skipping VS Code repository"
+    fi
+    rm -f /tmp/microsoft.asc
+else
+    echo -e "${YELLOW}[NEKO]${NC} Warning: Could not download Microsoft GPG key, skipping VS Code repository"
+fi
 
 # Update package lists again
 apt-get update
@@ -122,6 +133,31 @@ cat > /etc/hosts << EOF
 ::1         localhost ip6-localhost ip6-loopback
 EOF
 
+# Configure OS identity
+echo -e "${CYAN}[NEKO]${NC} Configuring OS identity..."
+cat > /etc/os-release << EOF
+NAME="NekoDevOS"
+VERSION="1.0 (Neko)"
+ID=nekodeos
+ID_LIKE=ubuntu
+PRETTY_NAME="NekoDevOS 1.0"
+VERSION_ID="1.0"
+HOME_URL="https://github.com/hinatanguyen/NekoDevOS"
+SUPPORT_URL="https://github.com/hinatanguyen/NekoDevOS/issues"
+BUG_REPORT_URL="https://github.com/hinatanguyen/NekoDevOS/issues"
+PRIVACY_POLICY_URL="https://github.com/hinatanguyen/NekoDevOS"
+VERSION_CODENAME=neko
+UBUNTU_CODENAME=jammy
+LOGO=nekodeos
+EOF
+
+cat > /etc/lsb-release << EOF
+DISTRIB_ID=NekoDevOS
+DISTRIB_RELEASE=1.0
+DISTRIB_CODENAME=neko
+DISTRIB_DESCRIPTION="NekoDevOS 1.0 - Developer Edition"
+EOF
+
 # Set locale
 locale-gen en_US.UTF-8
 update-locale LANG=en_US.UTF-8
@@ -143,6 +179,11 @@ User=neko
 Session=plasma
 EOF
 
+# Enable SDDM display manager service
+echo -e "${CYAN}[NEKO]${NC} Enabling SDDM display manager..."
+systemctl enable sddm.service || true
+systemctl set-default graphical.target || true
+
 # Install and configure Plymouth (boot splash)
 echo -e "${CYAN}[NEKO]${NC} Configuring boot splash..."
 apt-get install -y plymouth plymouth-themes
@@ -150,6 +191,13 @@ apt-get install -y plymouth plymouth-themes
 # Copy custom themes if they exist
 if [ -d /tmp/customization/plymouth ]; then
     cp -r /tmp/customization/plymouth/* /usr/share/plymouth/themes/ || true
+    
+    # Set NekoDevOS theme as default if it exists
+    if [ -f /usr/share/plymouth/themes/nekodeos/nekodeos.plymouth ]; then
+        update-alternatives --install /usr/share/plymouth/themes/default.plymouth default.plymouth /usr/share/plymouth/themes/nekodeos/nekodeos.plymouth 100
+        update-alternatives --set default.plymouth /usr/share/plymouth/themes/nekodeos/nekodeos.plymouth
+        echo -e "${GREEN}[NEKO]${NC} NekoDevOS Plymouth theme installed!"
+    fi
 fi
 
 # Configure GRUB
@@ -190,6 +238,121 @@ if [ -d /tmp/scripts ]; then
     chmod +x /home/neko/scripts/*.sh || true
 fi
 chown -R neko:neko /home/neko
+
+# Create custom neofetch config with NekoDevOS logo
+echo -e "${CYAN}[NEKO]${NC} Creating custom neofetch configuration..."
+mkdir -p /home/neko/.config/neofetch
+cat > /home/neko/.config/neofetch/config.conf << 'NEOFETCH_EOF'
+# NekoDevOS neofetch config
+print_info() {
+    info title
+    info underline
+
+    info "OS" distro
+    info "Host" model
+    info "Kernel" kernel
+    info "Uptime" uptime
+    info "Packages" packages
+    info "Shell" shell
+    info "Resolution" resolution
+    info "DE" de
+    info "WM" wm
+    info "WM Theme" wm_theme
+    info "Theme" theme
+    info "Icons" icons
+    info "Terminal" term
+    info "Terminal Font" term_font
+    info "CPU" cpu
+    info "GPU" gpu
+    info "Memory" memory
+
+    info cols
+}
+
+# Distro name override
+distro_shorthand="on"
+os_arch="on"
+
+# Kernel
+kernel_shorthand="on"
+
+# Uptime
+uptime_shorthand="on"
+
+# Memory
+memory_percent="on"
+memory_unit="mib"
+
+# Packages
+package_managers="on"
+
+# Shell
+shell_path="off"
+shell_version="on"
+
+# CPU
+speed_type="bios_limit"
+speed_shorthand="on"
+cpu_brand="on"
+cpu_speed="on"
+cpu_cores="logical"
+cpu_temp="off"
+
+# GPU
+gpu_brand="on"
+gpu_type="all"
+
+# Resolution
+refresh_rate="on"
+
+# DE/WM
+de_version="on"
+
+# Colors
+colors=(2 7 7 2 2 7)
+
+# Use custom ASCII art
+image_source="/home/neko/.config/neofetch/nekogirl.txt"
+image_backend="ascii"
+ascii_distro="auto"
+ascii_colors=(2 7)
+ascii_bold="on"
+
+# Misc
+stdout="off"
+NEOFETCH_EOF
+
+# Create custom cat girl ASCII art
+cat > /home/neko/.config/neofetch/nekogirl.txt << 'ASCII_EOF'
+${c1}                 ∧＿∧
+${c1}                (｡･ω･｡)ﾉ      ${c2}╔═══════════════════╗
+${c1}                /　　　 づ      ${c2}║   ${c1}NekoDevOS${c2}      ║
+${c1}            ～（　　　　）～    ${c2}║   ${c1}Nya~ ฅ^•ﻌ•^ฅ${c2}  ║
+${c1}              ＼＼＿／／       ${c2}╚═══════════════════╝
+${c1}               ヽ|　|ノ
+${c1}                  | |
+${c1}                (_(_)
+ASCII_EOF
+
+chown -R neko:neko /home/neko/.config
+
+# Create custom ASCII art for NekoDevOS
+mkdir -p /usr/share/neofetch/ascii/distro
+cat > /usr/share/neofetch/ascii/distro/nekodeos << 'ASCIIEOF'
+${c1}         ∧＿∧
+${c1}        (｡･ω･｡)ﾉ
+${c1}        /　　　 づ
+${c1}    ～（　　　　）～
+${c1}      ＼＼＿／／
+${c1}       ヽ|　|ノ
+${c1}          | |
+${c1}        (_(_)
+${c2}     
+${c2}    NekoDevOS
+${c3}   Developer Edition
+ASCIIEOF
+
+chown -R neko:neko /home/neko/.config
 
 # Install Starship prompt
 echo -e "${CYAN}[NEKO]${NC} Installing Starship prompt..."

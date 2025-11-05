@@ -177,9 +177,28 @@ create_squashfs() {
 create_iso() {
     print_info "Creating ISO image..."
     
-    # Copy kernel and initrd
-    cp "$WORK_DIR/chroot/boot/vmlinuz-"** "$WORK_DIR/image/casper/vmlinuz" 2>/dev/null || true
-    cp "$WORK_DIR/chroot/boot/initrd.img-"** "$WORK_DIR/image/casper/initrd" 2>/dev/null || true
+    # Find and copy kernel and initrd with proper error checking
+    print_info "Copying kernel and initrd..."
+    KERNEL_FILE=$(ls -1 "$WORK_DIR/chroot/boot/vmlinuz-"* 2>/dev/null | sort -V | tail -n1)
+    INITRD_FILE=$(ls -1 "$WORK_DIR/chroot/boot/initrd.img-"* 2>/dev/null | sort -V | tail -n1)
+    
+    if [ -z "$KERNEL_FILE" ] || [ ! -f "$KERNEL_FILE" ]; then
+        print_error "Kernel file not found in $WORK_DIR/chroot/boot/"
+        exit 1
+    fi
+    
+    if [ -z "$INITRD_FILE" ] || [ ! -f "$INITRD_FILE" ]; then
+        print_error "Initrd file not found in $WORK_DIR/chroot/boot/"
+        exit 1
+    fi
+    
+    print_info "Found kernel: $KERNEL_FILE"
+    print_info "Found initrd: $INITRD_FILE"
+    
+    cp "$KERNEL_FILE" "$WORK_DIR/image/casper/vmlinuz"
+    cp "$INITRD_FILE" "$WORK_DIR/image/casper/initrd"
+    
+    print_success "Kernel and initrd copied successfully!"
     
     # Create grub configuration
     mkdir -p "$WORK_DIR/image/boot/grub"
@@ -187,13 +206,32 @@ create_iso() {
 set timeout=10
 set default=0
 
+insmod all_video
+insmod gfxterm
+insmod iso9660
+
+set gfxmode=auto
+set gfxpayload=keep
+
+search --no-floppy --set=root --file /casper/vmlinuz
+
 menuentry "NekoDevOS - Live Session" {
-    linux /casper/vmlinuz boot=casper quiet splash ---
+    linux /casper/vmlinuz boot=casper username=neko hostname=nekodeos quiet splash nomodeset ---
+    initrd /casper/initrd
+}
+
+menuentry "NekoDevOS - Live Session (Safe Graphics)" {
+    linux /casper/vmlinuz boot=casper username=neko hostname=nekodeos nomodeset xforcevesa ---
     initrd /casper/initrd
 }
 
 menuentry "NekoDevOS - Install" {
-    linux /casper/vmlinuz boot=casper only-ubiquity quiet splash ---
+    linux /casper/vmlinuz boot=casper only-ubiquity username=neko hostname=nekodeos quiet splash ---
+    initrd /casper/initrd
+}
+
+menuentry "NekoDevOS - Live Session (Debug)" {
+    linux /casper/vmlinuz boot=casper username=neko hostname=nekodeos debug verbose ---
     initrd /casper/initrd
 }
 EOF

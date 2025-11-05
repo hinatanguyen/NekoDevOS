@@ -1,0 +1,121 @@
+# NekoDevOS Plymouth Boot Splash Script
+
+# Screen setup
+Window.SetBackgroundTopColor(0.10, 0.10, 0.15);     # Dark blue-purple
+Window.SetBackgroundBottomColor(0.15, 0.10, 0.20);  # Darker purple
+
+# Load images
+logo.image = Image("logo.png");
+logo.sprite = Sprite(logo.image);
+logo.opacity_angle = 0;
+
+# Center the logo
+logo.sprite.SetX(Window.GetWidth() / 2 - logo.image.GetWidth() / 2);
+logo.sprite.SetY(Window.GetHeight() / 2 - logo.image.GetHeight() / 2 - 50);
+
+# Spinning animation sprite (cat paw or loading indicator)
+spinner.image = Image("spinner.png");
+spinner.sprite = Sprite(spinner.image);
+spinner.sprite.SetX(Window.GetWidth() / 2 - spinner.image.GetWidth() / 2);
+spinner.sprite.SetY(Window.GetHeight() / 2 + logo.image.GetHeight() / 2 + 20);
+
+# Progress bar setup
+progress_box.image = Image("progress_box.png");
+progress_box.sprite = Sprite(progress_box.image);
+progress_box.sprite.SetX(Window.GetWidth() / 2 - progress_box.image.GetWidth() / 2);
+progress_box.sprite.SetY(Window.GetHeight() - 100);
+
+progress_bar.original_image = Image("progress_bar.png");
+progress_bar.sprite = Sprite();
+progress_bar.sprite.SetY(Window.GetHeight() - 100);
+
+# Loading text
+text.image = Image.Text("Loading NekoDevOS... Nya~ ฅ^•ﻌ•^ฅ", 1, 1, 1, 1, "Ubuntu 16");
+text.sprite = Sprite(text.image);
+text.sprite.SetX(Window.GetWidth() / 2 - text.image.GetWidth() / 2);
+text.sprite.SetY(Window.GetHeight() - 50);
+
+# Animation function
+fun refresh_callback() {
+    # Animate logo (gentle pulsing)
+    logo.opacity_angle += 0.05;
+    logo.sprite.SetOpacity(0.8 + 0.2 * Math.Sin(logo.opacity_angle));
+    
+    # Rotate spinner
+    spinner.sprite.SetRotationAngle((Plymouth.GetTime() * 2) % 360);
+    
+    # Update progress bar
+    progress = Plymouth.GetBootProgress();
+    new_progress_bar.image = progress_bar.original_image.Scale(progress_box.image.GetWidth() * progress, progress_bar.original_image.GetHeight());
+    progress_bar.sprite.SetImage(new_progress_bar.image);
+    progress_bar.sprite.SetX(Window.GetWidth() / 2 - progress_box.image.GetWidth() / 2);
+}
+
+Plymouth.SetRefreshFunction(refresh_callback);
+
+# Message handler
+fun message_callback(text) {
+    message.image = Image.Text(text, 1, 1, 1, 1, "Ubuntu 14");
+    message.sprite = Sprite(message.image);
+    message.sprite.SetX(Window.GetWidth() / 2 - message.image.GetWidth() / 2);
+    message.sprite.SetY(Window.GetHeight() - 30);
+}
+
+Plymouth.SetMessageFunction(message_callback);
+
+# Password dialog (if needed)
+fun dialog_setup() {
+    local.box;
+    local.entry;
+    
+    box.image = Image("dialog_box.png");
+    box.sprite = Sprite(box.image);
+    box.sprite.SetX(Window.GetWidth() / 2 - box.image.GetWidth() / 2);
+    box.sprite.SetY(Window.GetHeight() / 2 - box.image.GetHeight() / 2);
+    
+    dialog.box = box;
+    
+    entry.image = Image.Text("", 0.8, 0.8, 0.8, 1, "Ubuntu 16");
+    entry.sprite = Sprite(entry.image);
+    entry.sprite.SetX(Window.GetWidth() / 2 - entry.image.GetWidth() / 2);
+    entry.sprite.SetY(Window.GetHeight() / 2);
+    
+    dialog.entry = entry;
+    
+    global.dialog = dialog;
+}
+
+fun dialog_opacity(opacity) {
+    dialog.box.sprite.SetOpacity(opacity);
+    dialog.entry.sprite.SetOpacity(opacity);
+}
+
+fun display_normal_callback() {
+    global.status = "normal";
+    if (global.dialog)
+        dialog_opacity(0);
+}
+
+fun display_password_callback(prompt, bullets) {
+    if (!global.dialog)
+        dialog_setup();
+    
+    dialog_opacity(1);
+    dialog.entry.image = Image.Text(prompt + " " + String(bullets), 0.8, 0.8, 0.8, 1, "Ubuntu 16");
+    dialog.entry.sprite.SetImage(dialog.entry.image);
+    dialog.entry.sprite.SetX(Window.GetWidth() / 2 - dialog.entry.image.GetWidth() / 2);
+}
+
+Plymouth.SetDisplayNormalFunction(display_normal_callback);
+Plymouth.SetDisplayPasswordFunction(display_password_callback);
+
+# Quit callback
+fun quit_callback() {
+    logo.sprite.SetOpacity(0);
+    spinner.sprite.SetOpacity(0);
+    progress_box.sprite.SetOpacity(0);
+    progress_bar.sprite.SetOpacity(0);
+    text.sprite.SetOpacity(0);
+}
+
+Plymouth.SetQuitFunction(quit_callback);
