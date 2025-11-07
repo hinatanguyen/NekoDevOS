@@ -37,20 +37,8 @@ apt-get install -y wget curl gnupg2 ca-certificates software-properties-common
 # Add additional repositories
 echo -e "${CYAN}[NEKO]${NC} Adding additional repositories..."
 
-# VS Code repository (with error handling)
-echo -e "${CYAN}[NEKO]${NC} Adding VS Code repository..."
-if wget -O /tmp/microsoft.asc https://packages.microsoft.com/keys/microsoft.asc 2>/dev/null; then
-    if [ -s /tmp/microsoft.asc ]; then
-        gpg --dearmor < /tmp/microsoft.asc > /etc/apt/trusted.gpg.d/packages.microsoft.gpg 2>/dev/null || true
-        echo "deb [arch=amd64] https://packages.microsoft.com/repos/code stable main" > /etc/apt/sources.list.d/vscode.list
-        echo -e "${GREEN}[NEKO]${NC} VS Code repository added successfully!"
-    else
-        echo -e "${YELLOW}[NEKO]${NC} Warning: Could not download Microsoft GPG key, skipping VS Code repository"
-    fi
-    rm -f /tmp/microsoft.asc
-else
-    echo -e "${YELLOW}[NEKO]${NC} Warning: Could not download Microsoft GPG key, skipping VS Code repository"
-fi
+# Note: VS Code removed due to network dependency during build
+# Users can install it manually after installation
 
 # Update package lists again
 apt-get update
@@ -76,51 +64,26 @@ apt-get install -y \
     grub2-common \
     linux-generic
 
-# Install packages from list (if exists)
-if [ -f /tmp/packages.list ]; then
-    echo -e "${CYAN}[NEKO]${NC} Installing packages from list..."
-    
-    # Read packages line by line, skip comments and empty lines
-    while IFS= read -r package || [ -n "$package" ]; do
-        # Skip comments and empty lines
-        [[ "$package" =~ ^#.*$ ]] && continue
-        [[ -z "$package" ]] && continue
-        
-        # Try to install the package
-        echo "Installing: $package"
-        apt-get install -y "$package" 2>/dev/null || echo "Warning: Could not install $package"
-    done < /tmp/packages.list
-fi
+
 
 # Install KDE Plasma Desktop
 echo -e "${CYAN}[NEKO]${NC} Installing KDE Plasma Desktop..."
 apt-get install -y kde-plasma-desktop plasma-workspace sddm
 
-# Install development tools
+# Install essential development tools
 echo -e "${CYAN}[NEKO]${NC} Installing development tools..."
 apt-get install -y \
     git \
     vim \
-    neovim \
     python3 \
     python3-pip \
     nodejs \
     npm \
     build-essential \
-    code \
-    zsh
-
-# Install Oh My Zsh for root (users can install later)
-echo -e "${CYAN}[NEKO]${NC} Installing Oh My Zsh..."
-sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended || true
-
-# Install Japanese fonts and input methods
-echo -e "${CYAN}[NEKO]${NC} Installing Japanese language support..."
-apt-get install -y \
+    zsh \
     fonts-noto-cjk \
-    fonts-noto-cjk-extra \
-    ibus \
-    ibus-mozc
+    neofetch \
+    firefox
 
 # Configure system
 echo -e "${CYAN}[NEKO]${NC} Configuring system..."
@@ -167,8 +130,21 @@ ln -sf /usr/share/zoneinfo/UTC /etc/localtime
 
 # Create live user
 echo -e "${CYAN}[NEKO]${NC} Creating live user..."
-useradd -m -s /bin/bash -G sudo,adm,cdrom,plugdev,lpadmin -c "Neko User" neko || true
-echo "neko:neko" | chpasswd
+# Create necessary groups if they don't exist
+groupadd -f lpadmin || true
+groupadd -f plugdev || true
+
+# Create user with basic groups first
+useradd -m -s /bin/bash -G sudo,adm,cdrom -c "Neko User" neko || true
+
+# Add user to additional groups if they exist
+usermod -a -G plugdev neko 2>/dev/null || true
+usermod -a -G lpadmin neko 2>/dev/null || true
+
+# Set password
+echo "neko:neko" | chpasswd 2>/dev/null || passwd -d neko
+
+# Add sudo permissions
 echo "neko ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 
 # Enable auto-login for live session
@@ -184,21 +160,68 @@ echo -e "${CYAN}[NEKO]${NC} Enabling SDDM display manager..."
 systemctl enable sddm.service || true
 systemctl set-default graphical.target || true
 
+# Disable KDE splash screen to show Plymouth instead
+echo -e "${CYAN}[NEKO]${NC} Configuring to use Plymouth instead of KDE splash..."
+mkdir -p /home/neko/.config
+cat > /home/neko/.config/ksplashrc << EOF
+[KSplash]
+Engine=none
+Theme=None
+EOF
+
+# Also create global KDE config to disable splash
+mkdir -p /etc/xdg
+cat > /etc/xdg/ksplashrc << EOF
+[KSplash]
+Engine=none
+Theme=None
+EOF
+
 # Install and configure Plymouth (boot splash)
 echo -e "${CYAN}[NEKO]${NC} Configuring boot splash..."
-apt-get install -y plymouth plymouth-themes
+apt-get install -y plymouth plymouth-themes plymouth-label
 
-# Copy custom themes if they exist
-if [ -d /tmp/customization/plymouth ]; then
-    cp -r /tmp/customization/plymouth/* /usr/share/plymouth/themes/ || true
-    
-    # Set NekoDevOS theme as default if it exists
-    if [ -f /usr/share/plymouth/themes/nekodeos/nekodeos.plymouth ]; then
-        update-alternatives --install /usr/share/plymouth/themes/default.plymouth default.plymouth /usr/share/plymouth/themes/nekodeos/nekodeos.plymouth 100
-        update-alternatives --set default.plymouth /usr/share/plymouth/themes/nekodeos/nekodeos.plymouth
-        echo -e "${GREEN}[NEKO]${NC} NekoDevOS Plymouth theme installed!"
-    fi
-fi
+# Use NekoDevOS graphical theme (copied from customization/plymouth/nekodeos/)
+echo -e "${CYAN}[NEKO]${NC} Installing NekoDevOS graphical Plymouth theme..."
+
+# Set as default theme
+update-alternatives --install /usr/share/plymouth/themes/default.plymouth default.plymouth /usr/share/plymouth/themes/nekodeos/nekodeos.plymouth 100
+update-alternatives --set default.plymouth /usr/share/plymouth/themes/nekodeos/nekodeos.plymouth
+
+# Configure Plymouth daemon
+mkdir -p /etc/plymouth
+cat > /etc/plymouth/plymouthd.conf << 'EOF'
+[Daemon]
+Theme=nekodeos
+ShowDelay=0
+DeviceTimeout=8
+EOF
+
+# Add Plymouth to initramfs modules
+mkdir -p /etc/initramfs-tools/conf.d
+echo "FRAMEBUFFER=y" > /etc/initramfs-tools/conf.d/splash
+
+# Ensure Plymouth is in initramfs hooks
+cat > /etc/initramfs-tools/hooks/plymouth-fix << 'EOF'
+#!/bin/sh
+PREREQ=""
+prereqs() { echo "$PREREQ"; }
+case "$1" in
+    prereqs) prereqs; exit 0 ;;
+esac
+. /usr/share/initramfs-tools/hook-functions
+copy_exec /usr/bin/plymouth
+copy_exec /usr/sbin/plymouthd
+mkdir -p "${DESTDIR}/usr/share/plymouth/themes"
+cp -a /usr/share/plymouth/themes/nekodeos "${DESTDIR}/usr/share/plymouth/themes/"
+EOF
+chmod +x /etc/initramfs-tools/hooks/plymouth-fix
+
+# Update initramfs
+echo -e "${CYAN}[NEKO]${NC} Updating initramfs with Plymouth theme..."
+update-initramfs -u
+
+echo -e "${GREEN}[NEKO]${NC} Plymouth theme configured!"
 
 # Configure GRUB
 echo -e "${CYAN}[NEKO]${NC} Configuring bootloader..."
@@ -211,160 +234,24 @@ GRUB_CMDLINE_LINUX_DEFAULT="quiet splash"
 GRUB_GFXMODE=1920x1080
 EOF
 
-# Copy custom GRUB theme if exists
-if [ -d /tmp/customization/grub ]; then
-    mkdir -p /boot/grub/themes
-    cp -r /tmp/customization/grub/* /boot/grub/themes/ || true
-fi
+# Basic system configuration complete
 
-# Install custom themes
-echo -e "${CYAN}[NEKO]${NC} Installing custom themes..."
-if [ -d /tmp/customization/themes ]; then
-    mkdir -p /usr/share/themes
-    cp -r /tmp/customization/themes/* /usr/share/themes/ || true
-fi
-
-# Install custom wallpapers
-if [ -d /tmp/customization/wallpapers ]; then
-    mkdir -p /usr/share/wallpapers/nekodeos
-    cp -r /tmp/customization/wallpapers/* /usr/share/wallpapers/nekodeos/ || true
-fi
-
-# Copy customization scripts to home directory
+# Configure NekoDevOS branding
+echo -e "${CYAN}[NEKO]${NC} Setting up NekoDevOS branding..."
 mkdir -p /home/neko/.config
-mkdir -p /home/neko/scripts
-if [ -d /tmp/scripts ]; then
-    cp -r /tmp/scripts/* /home/neko/scripts/ || true
-    chmod +x /home/neko/scripts/*.sh || true
-fi
-chown -R neko:neko /home/neko
 
-# Create custom neofetch config with NekoDevOS logo
-echo -e "${CYAN}[NEKO]${NC} Creating custom neofetch configuration..."
+# Simple neofetch config
 mkdir -p /home/neko/.config/neofetch
-cat > /home/neko/.config/neofetch/config.conf << 'NEOFETCH_EOF'
-# NekoDevOS neofetch config
-print_info() {
-    info title
-    info underline
+cat > /home/neko/.config/neofetch/config.conf << 'EOF'
+ascii_distro="arch_small"
+ascii_colors=(6 6 7 1 8 6)
+colors=(6 6 7 1 8 6)
+EOF
 
-    info "OS" distro
-    info "Host" model
-    info "Kernel" kernel
-    info "Uptime" uptime
-    info "Packages" packages
-    info "Shell" shell
-    info "Resolution" resolution
-    info "DE" de
-    info "WM" wm
-    info "WM Theme" wm_theme
-    info "Theme" theme
-    info "Icons" icons
-    info "Terminal" term
-    info "Terminal Font" term_font
-    info "CPU" cpu
-    info "GPU" gpu
-    info "Memory" memory
+# Add neofetch to bashrc
+echo 'neofetch' >> /home/neko/.bashrc
 
-    info cols
-}
-
-# Distro name override
-distro_shorthand="on"
-os_arch="on"
-
-# Kernel
-kernel_shorthand="on"
-
-# Uptime
-uptime_shorthand="on"
-
-# Memory
-memory_percent="on"
-memory_unit="mib"
-
-# Packages
-package_managers="on"
-
-# Shell
-shell_path="off"
-shell_version="on"
-
-# CPU
-speed_type="bios_limit"
-speed_shorthand="on"
-cpu_brand="on"
-cpu_speed="on"
-cpu_cores="logical"
-cpu_temp="off"
-
-# GPU
-gpu_brand="on"
-gpu_type="all"
-
-# Resolution
-refresh_rate="on"
-
-# DE/WM
-de_version="on"
-
-# Colors
-colors=(2 7 7 2 2 7)
-
-# Use custom ASCII art
-image_source="/home/neko/.config/neofetch/nekogirl.txt"
-image_backend="ascii"
-ascii_distro="auto"
-ascii_colors=(2 7)
-ascii_bold="on"
-
-# Misc
-stdout="off"
-NEOFETCH_EOF
-
-# Create custom cat girl ASCII art
-cat > /home/neko/.config/neofetch/nekogirl.txt << 'ASCII_EOF'
-${c1}                 ∧＿∧
-${c1}                (｡･ω･｡)ﾉ      ${c2}╔═══════════════════╗
-${c1}                /　　　 づ      ${c2}║   ${c1}NekoDevOS${c2}      ║
-${c1}            ～（　　　　）～    ${c2}║   ${c1}Nya~ ฅ^•ﻌ•^ฅ${c2}  ║
-${c1}              ＼＼＿／／       ${c2}╚═══════════════════╝
-${c1}               ヽ|　|ノ
-${c1}                  | |
-${c1}                (_(_)
-ASCII_EOF
-
-chown -R neko:neko /home/neko/.config
-
-# Create custom ASCII art for NekoDevOS
-mkdir -p /usr/share/neofetch/ascii/distro
-cat > /usr/share/neofetch/ascii/distro/nekodeos << 'ASCIIEOF'
-${c1}         ∧＿∧
-${c1}        (｡･ω･｡)ﾉ
-${c1}        /　　　 づ
-${c1}    ～（　　　　）～
-${c1}      ＼＼＿／／
-${c1}       ヽ|　|ノ
-${c1}          | |
-${c1}        (_(_)
-${c2}     
-${c2}    NekoDevOS
-${c3}   Developer Edition
-ASCIIEOF
-
-chown -R neko:neko /home/neko/.config
-
-# Install Starship prompt
-echo -e "${CYAN}[NEKO]${NC} Installing Starship prompt..."
-curl -sS https://starship.rs/install.sh | sh -s -- -y || true
-
-# Configure firewall
-echo -e "${CYAN}[NEKO]${NC} Configuring firewall..."
-apt-get install -y ufw
-ufw --force enable
-ufw default deny incoming
-ufw default allow outgoing
-ufw allow ssh
+chown -R neko:neko /home/neko
 
 # Clean up
 echo -e "${CYAN}[NEKO]${NC} Cleaning up..."

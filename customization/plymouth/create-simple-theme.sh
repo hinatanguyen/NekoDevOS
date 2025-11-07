@@ -1,0 +1,75 @@
+#!/bin/bash
+# Backup script to create a simple text-based Plymouth theme as fallback
+
+THEME_DIR="/home/hinatanguyen/NekoDevOS/customization/plymouth/nekodeos-simple"
+mkdir -p "$THEME_DIR"
+
+cat > "$THEME_DIR/nekodeos-simple.plymouth" << 'EOF'
+[Plymouth Theme]
+Name=NekoDevOS Simple
+Description=NekoDevOS simple text boot splash
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/nekodeos-simple
+ScriptFile=/usr/share/plymouth/themes/nekodeos-simple/nekodeos-simple.script
+EOF
+
+cat > "$THEME_DIR/nekodeos-simple.script" << 'EOF'
+# Simple NekoDevOS Plymouth Script
+
+# Background colors
+Window.SetBackgroundTopColor(0.11, 0.11, 0.13);
+Window.SetBackgroundBottomColor(0.16, 0.11, 0.18);
+
+# ASCII Art logo
+lines[0] = "                 ∧＿∧";
+lines[1] = "                (｡･ω･｡)ﾉ";
+lines[2] = "                /　　　 づ";
+lines[3] = "            ～（　　　　）～";
+lines[4] = "              ＼＼＿／／";
+lines[5] = "               ヽ|　|ノ";
+lines[6] = "                  | |";
+lines[7] = "                (_(_)";
+lines[8] = "";
+lines[9] = "            NekoDevOS";
+lines[10] = "         Developer Edition";
+lines[11] = "";
+lines[12] = "          Loading... Nya~";
+
+# Create sprites for each line
+for (i = 0; i < 13; i++) {
+    line[i].image = Image.Text(lines[i], 1, 0.7, 1);
+    line[i].sprite = Sprite(line[i].image);
+    line[i].sprite.SetX(Window.GetWidth() / 2 - line[i].image.GetWidth() / 2);
+    line[i].sprite.SetY(Window.GetHeight() / 2 - 200 + i * 20);
+}
+
+# Animated dots
+dots_image[0] = Image.Text("", 1, 0.7, 1);
+dots_image[1] = Image.Text(".", 1, 0.7, 1);
+dots_image[2] = Image.Text("..", 1, 0.7, 1);
+dots_image[3] = Image.Text("...", 1, 0.7, 1);
+
+dots_sprite = Sprite();
+dots_sprite.SetX(Window.GetWidth() / 2 + 80);
+dots_sprite.SetY(Window.GetHeight() / 2 + 50);
+
+fun refresh_callback() {
+    dots_sprite.SetImage(dots_image[Math.Int(Plymouth.GetTime() * 2) % 4]);
+}
+
+Plymouth.SetRefreshFunction(refresh_callback);
+
+# Message display
+fun message_callback(text) {
+    message_image = Image.Text(text, 0.8, 0.8, 0.8);
+    message_sprite = Sprite(message_image);
+    message_sprite.SetX(Window.GetWidth() / 2 - message_image.GetWidth() / 2);
+    message_sprite.SetY(Window.GetHeight() - 50);
+}
+
+Plymouth.SetMessageFunction(message_callback);
+EOF
+
+echo "✓ Simple fallback Plymouth theme created at: $THEME_DIR"

@@ -135,16 +135,13 @@ unmount_filesystems() {
 copy_custom_files() {
     print_info "Copying custom files..."
     
-    # Copy package list
-    cp config/packages.list "$WORK_DIR/chroot/tmp/" 2>/dev/null || true
-    
-    # Copy customization scripts
-    cp -r customization "$WORK_DIR/chroot/tmp/" 2>/dev/null || true
-    cp -r scripts "$WORK_DIR/chroot/tmp/" 2>/dev/null || true
-    
     # Copy chroot commands
     cp scripts/chroot-commands.sh "$WORK_DIR/chroot/tmp/" 2>/dev/null || true
     chmod +x "$WORK_DIR/chroot/tmp/chroot-commands.sh" 2>/dev/null || true
+    
+    # Copy graphical Plymouth theme
+    mkdir -p "$WORK_DIR/chroot/usr/share/plymouth/themes/nekodeos"
+    cp -r customization/plymouth/nekodeos/* "$WORK_DIR/chroot/usr/share/plymouth/themes/nekodeos/" 2>/dev/null || true
     
     print_success "Custom files copied!"
 }
@@ -172,6 +169,8 @@ create_squashfs() {
     
     print_success "Squashfs created!"
 }
+
+
 
 # Create ISO image
 create_iso() {
@@ -203,7 +202,7 @@ create_iso() {
     # Create grub configuration
     mkdir -p "$WORK_DIR/image/boot/grub"
     cat > "$WORK_DIR/image/boot/grub/grub.cfg" << EOF
-set timeout=10
+set timeout=30
 set default=0
 
 insmod all_video
@@ -215,23 +214,13 @@ set gfxpayload=keep
 
 search --no-floppy --set=root --file /casper/vmlinuz
 
-menuentry "NekoDevOS - Live Session" {
-    linux /casper/vmlinuz boot=casper username=neko hostname=nekodeos quiet splash nomodeset ---
+menuentry "Try NekoDevOS" {
+    linux /casper/vmlinuz boot=casper username=neko hostname=nekodeos quiet splash plymouth.ignore-serial-consoles ---
     initrd /casper/initrd
 }
 
-menuentry "NekoDevOS - Live Session (Safe Graphics)" {
-    linux /casper/vmlinuz boot=casper username=neko hostname=nekodeos nomodeset xforcevesa ---
-    initrd /casper/initrd
-}
-
-menuentry "NekoDevOS - Install" {
-    linux /casper/vmlinuz boot=casper only-ubiquity username=neko hostname=nekodeos quiet splash ---
-    initrd /casper/initrd
-}
-
-menuentry "NekoDevOS - Live Session (Debug)" {
-    linux /casper/vmlinuz boot=casper username=neko hostname=nekodeos debug verbose ---
+menuentry "Install NekoDevOS" {
+    linux /casper/vmlinuz boot=casper only-ubiquity username=neko hostname=nekodeos quiet splash plymouth.ignore-serial-consoles ---
     initrd /casper/initrd
 }
 EOF
