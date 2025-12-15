@@ -59,19 +59,6 @@ NekoDevOS is a custom Ubuntu-based Linux distribution that combines powerful dev
 
 ### Build Instructions
 
-#### Option 1: Minimal Build (Faster - for testing)
-```bash
-# Clone the repository
-git clone https://github.com/hinatanguyen/NekoDevOS.git
-cd NekoDevOS
-
-# Build minimal ISO (no desktop, just bootable system)
-sudo ./build-minimal.sh
-
-# The ISO will be created in ./output/
-```
-
-#### Option 2: Full Build (Complete NekoDevOS with all features)
 ```bash
 # Clone the repository
 git clone https://github.com/hinatanguyen/NekoDevOS.git
@@ -103,53 +90,18 @@ sudo ./clean.sh
 3. Boot from USB and follow the installation wizard
 4. Enjoy your weeb-dev paradise! 🎉
 
-## 🎯 Post-Installation Setup
-
-After installing NekoDevOS, run the customization script:
-
-```bash
-./scripts/customize.sh
-```
-
-This will:
-- Set up anime wallpapers rotation
-- Configure terminal themes
-- Install additional anime-themed packages
-- Set up development environments
-
 ## 📁 Project Structure
 
 ```
 NekoDevOS/
 ├── build.sh                 # Main build script
+├── clean.sh                 # Cleanup script
 ├── config/
-│   ├── packages.list        # List of packages to install
-│   ├── preseed.cfg          # Automated installation config
-│   └── isolinux.cfg         # Boot loader configuration
-├── customization/
-│   ├── themes/              # Anime themes and icon packs
-│   ├── wallpapers/          # Wallpaper collection
-│   ├── plymouth/            # Boot splash screens
-│   └── grub/                # GRUB themes
+│   └── packages.list        # List of packages to install
 ├── scripts/
-│   ├── customize.sh         # Post-install customization
-│   ├── chroot-commands.sh   # Commands to run in chroot
-│   └── setup-dev-env.sh     # Development environment setup
+│   └── chroot-commands.sh   # Commands to run in chroot environment
+├── output/                  # Generated ISO files
 └── README.md
-```
-
-## 🎨 Customization Options
-
-### Changing Themes
-```bash
-# Switch to different anime theme
-./scripts/switch-theme.sh <theme-name>
-```
-
-### Adding Your Own Wallpapers
-Place wallpapers in `~/.local/share/wallpapers/neko/` and run:
-```bash
-./scripts/update-wallpapers.sh
 ```
 
 ## 🤝 Contributing
@@ -198,9 +150,9 @@ This is a fan-made project created for fun and learning. All anime artwork and t
 
 **Problem**: Build takes too long or gets stuck
 - **Solution**: 
-  - Try the minimal build first: `sudo ./build-minimal.sh`
   - Check your internet connection
   - Some packages are large (1GB+), be patient
+  - Ensure you have sufficient disk space (20GB+)
 
 **Problem**: Permission denied errors
 - **Solution**: Always run build scripts with `sudo`

@@ -1,8 +1,0 @@
-[Plymouth Theme]
-Name=NekoDevOS Simple
-Description=NekoDevOS simple text boot splash
-ModuleName=script
-
-[script]
-ImageDir=/usr/share/plymouth/themes/nekodeos-simple
-ScriptFile=/usr/share/plymouth/themes/nekodeos-simple/nekodeos-simple.script

@@ -139,9 +139,14 @@ copy_custom_files() {
     cp scripts/chroot-commands.sh "$WORK_DIR/chroot/tmp/" 2>/dev/null || true
     chmod +x "$WORK_DIR/chroot/tmp/chroot-commands.sh" 2>/dev/null || true
     
-    # Copy graphical Plymouth theme
-    mkdir -p "$WORK_DIR/chroot/usr/share/plymouth/themes/nekodeos"
-    cp -r customization/plymouth/nekodeos/* "$WORK_DIR/chroot/usr/share/plymouth/themes/nekodeos/" 2>/dev/null || true
+    # Copy custom wallpaper if exists
+    if [ -f config/wallpaper/wallpaper.jpg ] || [ -f config/wallpaper/wallpaper.png ]; then
+        WALLPAPER=$(ls config/wallpaper/wallpaper.* 2>/dev/null | head -1)
+        if [ -n "$WALLPAPER" ]; then
+            print_info "Found custom wallpaper: $WALLPAPER"
+            cp "$WALLPAPER" "$WORK_DIR/chroot/tmp/wallpaper.jpg"
+        fi
+    fi
     
     print_success "Custom files copied!"
 }
@@ -215,12 +220,22 @@ set gfxpayload=keep
 search --no-floppy --set=root --file /casper/vmlinuz
 
 menuentry "Try NekoDevOS" {
-    linux /casper/vmlinuz boot=casper username=neko hostname=nekodeos quiet splash plymouth.ignore-serial-consoles ---
+    linux /casper/vmlinuz boot=casper union=overlay username=neko hostname=nekodeos autologin ---
+    initrd /casper/initrd
+}
+
+menuentry "Try NekoDevOS (Safe Mode - AUFS)" {
+    linux /casper/vmlinuz boot=casper union=aufs username=neko hostname=nekodeos autologin ---
     initrd /casper/initrd
 }
 
 menuentry "Install NekoDevOS" {
-    linux /casper/vmlinuz boot=casper only-ubiquity username=neko hostname=nekodeos quiet splash plymouth.ignore-serial-consoles ---
+    linux /casper/vmlinuz boot=casper union=overlay only-ubiquity username=neko hostname=nekodeos ---
+    initrd /casper/initrd
+}
+
+menuentry "Install NekoDevOS (Safe Mode - AUFS)" {
+    linux /casper/vmlinuz boot=casper union=aufs only-ubiquity username=neko hostname=nekodeos ---
     initrd /casper/initrd
 }
 EOF
