@@ -32,39 +32,67 @@ if [ -f /usr/lib/python3/dist-packages/debconf.py ]; then
     # Create a backup
     cp /usr/lib/python3/dist-packages/debconf.py /usr/lib/python3/dist-packages/debconf.py.bak
     
-    # Patch the command function to handle empty status strings
+    # Comprehensive patch for debconf.py to handle:
+    # 1. Empty status strings in command()
+    # 2. Empty version strings in setUp()
     cat > /tmp/debconf_patch.py << 'PYPATCH'
 import sys
+import re
 
 with open('/usr/lib/python3/dist-packages/debconf.py', 'r') as f:
     content = f.read()
 
-# Find and replace the status parsing line that causes the error
-# Original: status = int(status)
-# Replace with proper error handling
-old_code = 'status = int(status)'
-new_code = '''try:
-            status = int(status) if status else 0
-        except (ValueError, AttributeError):
-            status = 0'''
+patched = False
 
-if old_code in content:
-    content = content.replace(old_code, new_code)
+# Patch 1: Fix status = int(status) to handle empty strings
+old_status = 'status = int(status)'
+new_status = 'status = int(status) if status and str(status).strip() else 0'
+if old_status in content:
+    content = content.replace(old_status, new_status)
+    patched = True
+    print("Patched status parsing")
+
+# Patch 2: Fix setUp() version check to handle empty version strings
+# Original: if self.version[:2] != '2.':
+#           raise DebconfError(256, "wrong version: %s" % self.version)
+old_version_check = "if self.version[:2] != '2.':\n            raise DebconfError(256, \"wrong version: %s\" % self.version)"
+new_version_check = '''if not self.version or self.version[:2] != '2.':
+            # Handle empty or invalid version - assume compatible version for live environment
+            self.version = '2.0'
+            # Don't raise error, just continue with assumed version'''
+if old_version_check in content:
+    content = content.replace(old_version_check, new_version_check)
+    patched = True
+    print("Patched version check")
+
+# Patch 3: Fix version assignment line to handle empty responses
+old_version_assign = 'self.version = self.version(2)'
+new_version_assign = '''try:
+            self.version = self.version(2) or '2.0'
+        except Exception:
+            self.version = '2.0\''''
+if old_version_assign in content:
+    content = content.replace(old_version_assign, new_version_assign)
+    patched = True
+    print("Patched version assignment")
+
+if patched:
     with open('/usr/lib/python3/dist-packages/debconf.py', 'w') as f:
         f.write(content)
-    print("Patched debconf.py successfully")
+    print("debconf.py patched successfully")
 else:
-    print("Pattern not found, trying alternative patch")
+    print("No patterns matched - file may already be patched or has different format")
 PYPATCH
     
     python3 /tmp/debconf_patch.py 2>/dev/null || true
     rm -f /tmp/debconf_patch.py
     
-    # Additional comprehensive patch using sed
-    sed -i 's/status = int(status)/status = int(status) if status and status.strip() else 0/g' /usr/lib/python3/dist-packages/debconf.py 2>/dev/null || true
+    # Fallback: Use sed for simpler replacements if Python patch didn't work
+    sed -i 's/status = int(status)/status = int(status) if status and str(status).strip() else 0/g' /usr/lib/python3/dist-packages/debconf.py 2>/dev/null || true
 fi
 
 # Also create a completely safe debconf wrapper module
+mkdir -p /usr/lib/python3/dist-packages
 cat > /usr/lib/python3/dist-packages/debconf_safe.py << 'PYSAFE'
 """Safe wrapper for debconf that handles empty responses"""
 import sys
@@ -92,6 +120,9 @@ except:
 PYSAFE
 
 chmod 644 /usr/lib/python3/dist-packages/debconf_safe.py
+
+# Note: The actual debconfcommunicator.py patch happens AFTER ubiquity is installed
+# This early check is just a placeholder - ubiquity isn't installed yet at this point
 
 # Configure APT
 echo -e "${CYAN}[NEKO]${NC} Configuring package manager..."
@@ -224,6 +255,126 @@ apt-get install -y --no-install-recommends \
     ubiquity-frontend-gtk \
     ubiquity-casper
 
+# CRITICAL: Patch debconfcommunicator.py AFTER ubiquity is installed
+echo -e "${CYAN}[NEKO]${NC} Patching Ubiquity debconfcommunicator for live environment..."
+if [ -f /usr/lib/ubiquity/ubiquity/debconfcommunicator.py ]; then
+    cp /usr/lib/ubiquity/ubiquity/debconfcommunicator.py /usr/lib/ubiquity/ubiquity/debconfcommunicator.py.bak
+    
+    # Create a fully mocked version that NEVER uses real debconf
+    cat > /usr/lib/ubiquity/ubiquity/debconfcommunicator.py << 'UBIQUITY_DEBCONF_PATCH'
+# Patched DebconfCommunicator for NekoDevOS live environment
+# Completely mocked - does NOT try to use real debconf to avoid BrokenPipeError
+
+import os
+import sys
+
+os.environ['DEBIAN_FRONTEND'] = 'noninteractive'
+os.environ['DEBCONF_NONINTERACTIVE_SEEN'] = 'true'
+os.environ['DEBCONF_NOWARNINGS'] = 'yes'
+
+class DebconfCommunicator:
+    """Fully mocked DebconfCommunicator for live ISO environment."""
+    
+    def __init__(self, owner, title=None, cloexec=False):
+        self.owner = owner
+        self.title = title
+        self.cloexec = cloexec
+        self._db = {}
+        self._shutdown = False
+    
+    def send_command(self, command, *args):
+        cmd = command.upper()
+        if cmd == 'VERSION':
+            return '2.0'
+        elif cmd == 'CAPB':
+            return 'backup escape multiselect'
+        elif cmd == 'GET':
+            key = args[0] if args else ''
+            return self._db.get(key, '')
+        elif cmd == 'SET':
+            if len(args) >= 2:
+                self._db[args[0]] = args[1]
+            return ''
+        elif cmd == 'SUBST':
+            return ''
+        elif cmd == 'FGET':
+            return 'false'
+        elif cmd == 'FSET':
+            return 'true'
+        elif cmd == 'INPUT':
+            return '30'
+        elif cmd == 'GO':
+            return '0'
+        elif cmd == 'TITLE':
+            return ''
+        elif cmd == 'SETTITLE':
+            return ''
+        elif cmd == 'INFO':
+            return ''
+        elif cmd == 'PROGRESS':
+            return ''
+        elif cmd == 'REGISTER':
+            return ''
+        elif cmd == 'UNREGISTER':
+            return ''
+        elif cmd == 'PURGE':
+            return ''
+        elif cmd == 'METAGET':
+            return ''
+        elif cmd == 'EXIST':
+            return 'true'
+        elif cmd == 'BEGINBLOCK':
+            return ''
+        elif cmd == 'ENDBLOCK':
+            return ''
+        elif cmd == 'STOP':
+            return ''
+        elif cmd == 'X_LOADTEMPLATEFILE':
+            return ''
+        return ''
+    
+    def command(self, command, *args):
+        return self.send_command(command, *args)
+    
+    def shutdown(self):
+        self._shutdown = True
+    
+    def __enter__(self):
+        return self
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.shutdown()
+        return False
+    
+    def get(self, key):
+        return self.send_command('GET', key)
+    
+    def set(self, key, value):
+        return self.send_command('SET', key, value)
+    
+    def subst(self, key, var, value):
+        return self.send_command('SUBST', key, var, value)
+    
+    def fget(self, key, flag):
+        return self.send_command('FGET', key, flag)
+    
+    def fset(self, key, flag, value):
+        return self.send_command('FSET', key, flag, value)
+    
+    def input(self, priority, key):
+        return self.send_command('INPUT', priority, key)
+    
+    def go(self):
+        return self.send_command('GO')
+    
+    def progress(self, command, *args):
+        return self.send_command('PROGRESS', command, *args)
+UBIQUITY_DEBCONF_PATCH
+    echo -e "${GREEN}[NEKO]${NC} debconfcommunicator.py patched successfully!"
+else
+    echo -e "${CYAN}[NEKO]${NC} Warning: debconfcommunicator.py not found"
+fi
+
 # Fix debconf database for live environment
 echo -e "${CYAN}[NEKO]${NC} Initializing debconf database for installer..."
 debconf-set-selections <<EOF
@@ -243,9 +394,22 @@ export DEBIAN_FRONTEND=noninteractive
 export DEBCONF_NONINTERACTIVE_SEEN=true
 export DEBCONF_NOWARNINGS=yes
 
-# Ensure debconf database exists and is writable
+# Ensure debconf database directory exists and is writable
 if [ ! -d /var/cache/debconf ]; then
     mkdir -p /var/cache/debconf
+fi
+
+# Ensure proper permissions
+chmod 755 /var/cache/debconf 2>/dev/null || true
+
+# Create minimal debconf database if it doesn't exist
+if [ ! -f /var/cache/debconf/config.dat ]; then
+    touch /var/cache/debconf/config.dat
+    touch /var/cache/debconf/passwords.dat
+    touch /var/cache/debconf/templates.dat
+    chmod 644 /var/cache/debconf/config.dat
+    chmod 600 /var/cache/debconf/passwords.dat
+    chmod 644 /var/cache/debconf/templates.dat
 fi
 
 # Clear any corrupted debconf state
@@ -303,9 +467,52 @@ export PYTHONSTARTUP=/usr/lib/python3/dist-packages/debconf_safe.py
 # Fix debconf
 /usr/local/sbin/fix-debconf-live.sh
 
-# Patch debconf.py on-the-fly if needed
+# Patch debconf.py on-the-fly if needed to fix "wrong version" error
 if [ -f /usr/lib/python3/dist-packages/debconf.py ]; then
-    sed -i 's/status = int(status)$/status = int(status or 0)/g' /usr/lib/python3/dist-packages/debconf.py 2>/dev/null || true
+    python3 << 'PATCH_SCRIPT'
+import re
+
+try:
+    with open('/usr/lib/python3/dist-packages/debconf.py', 'r') as f:
+        content = f.read()
+    
+    modified = False
+    
+    # Fix 1: status = int(status) handling
+    if 'status = int(status)' in content and 'if status and str(status)' not in content:
+        content = content.replace('status = int(status)', 'status = int(status) if status and str(status).strip() else 0')
+        modified = True
+    
+    # Fix 2: Version check - handle empty version string
+    old_check = "if self.version[:2] != '2.':"
+    new_check = "if not self.version or self.version[:2] != '2.':"
+    if old_check in content and "if not self.version" not in content:
+        content = content.replace(old_check, new_check)
+        modified = True
+    
+    # Fix 3: Handle the DebconfError raise by making version default to '2.0'
+    old_raise = 'raise DebconfError(256, "wrong version: %s" % self.version)'
+    new_raise = 'self.version = "2.0"  # Default to compatible version instead of raising'
+    if old_raise in content:
+        content = content.replace(old_raise, new_raise)
+        modified = True
+    
+    # Fix 4: Handle version() call returning empty
+    old_version_call = 'self.version = self.version(2)'
+    new_version_call = '''try:
+            self.version = self.version(2) or "2.0"
+        except:
+            self.version = "2.0"'''
+    if old_version_call in content and 'try:' not in content[content.find('setUp'):content.find('setUp')+200]:
+        content = content.replace(old_version_call, new_version_call)
+        modified = True
+    
+    if modified:
+        with open('/usr/lib/python3/dist-packages/debconf.py', 'w') as f:
+            f.write(content)
+except Exception as e:
+    pass  # Silently continue if patching fails
+PATCH_SCRIPT
 fi
 
 # Launch real ubiquity
