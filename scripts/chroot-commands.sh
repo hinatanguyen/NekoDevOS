@@ -248,205 +248,489 @@ apt-get install -y --no-install-recommends \
     gnome-icon-theme \
     hicolor-icon-theme
 
-# Install Ubiquity installer for OS installation
-echo -e "${CYAN}[NEKO]${NC} Installing system installer..."
+# Install Calamares installer (more stable than ubiquity for custom distros)
+echo -e "${CYAN}[NEKO]${NC} Installing system installer (Calamares)..."
 apt-get install -y --no-install-recommends \
-    ubiquity \
-    ubiquity-frontend-gtk \
-    ubiquity-casper
+    calamares \
+    partitionmanager \
+    os-prober \
+    grub-efi-amd64 \
+    grub-pc-bin \
+    policykit-1 \
+    policykit-1-gnome \
+    xdg-utils \
+    desktop-file-utils \
+    squashfs-tools \
+    rsync
 
-# CRITICAL: Patch debconfcommunicator.py AFTER ubiquity is installed
-echo -e "${CYAN}[NEKO]${NC} Patching Ubiquity debconfcommunicator for live environment..."
-if [ -f /usr/lib/ubiquity/ubiquity/debconfcommunicator.py ]; then
-    cp /usr/lib/ubiquity/ubiquity/debconfcommunicator.py /usr/lib/ubiquity/ubiquity/debconfcommunicator.py.bak
-    
-    # Create a fully mocked version that NEVER uses real debconf
-    cat > /usr/lib/ubiquity/ubiquity/debconfcommunicator.py << 'UBIQUITY_DEBCONF_PATCH'
-# Patched DebconfCommunicator for NekoDevOS live environment
-# Completely mocked - does NOT try to use real debconf to avoid BrokenPipeError
+# Configure Calamares for NekoDevOS installation
+echo -e "${CYAN}[NEKO]${NC} Configuring Calamares installer..."
+mkdir -p /etc/calamares/modules
 
-import os
-import sys
+# Create main Calamares settings file
+cat > /etc/calamares/settings.conf << 'CALAMARES_SETTINGS'
+---
+branding: nekodevos
 
-os.environ['DEBIAN_FRONTEND'] = 'noninteractive'
-os.environ['DEBCONF_NONINTERACTIVE_SEEN'] = 'true'
-os.environ['DEBCONF_NOWARNINGS'] = 'yes'
+modules-search: [ local, /usr/lib/x86_64-linux-gnu/calamares/modules ]
 
-class DebconfCommunicator:
-    """Fully mocked DebconfCommunicator for live ISO environment."""
-    
-    def __init__(self, owner, title=None, cloexec=False):
-        self.owner = owner
-        self.title = title
-        self.cloexec = cloexec
-        self._db = {}
-        self._shutdown = False
-    
-    def send_command(self, command, *args):
-        cmd = command.upper()
-        if cmd == 'VERSION':
-            return '2.0'
-        elif cmd == 'CAPB':
-            return 'backup escape multiselect'
-        elif cmd == 'GET':
-            key = args[0] if args else ''
-            return self._db.get(key, '')
-        elif cmd == 'SET':
-            if len(args) >= 2:
-                self._db[args[0]] = args[1]
-            return ''
-        elif cmd == 'SUBST':
-            return ''
-        elif cmd == 'FGET':
-            return 'false'
-        elif cmd == 'FSET':
-            return 'true'
-        elif cmd == 'INPUT':
-            return '30'
-        elif cmd == 'GO':
-            return '0'
-        elif cmd == 'TITLE':
-            return ''
-        elif cmd == 'SETTITLE':
-            return ''
-        elif cmd == 'INFO':
-            return ''
-        elif cmd == 'PROGRESS':
-            return ''
-        elif cmd == 'REGISTER':
-            return ''
-        elif cmd == 'UNREGISTER':
-            return ''
-        elif cmd == 'PURGE':
-            return ''
-        elif cmd == 'METAGET':
-            return ''
-        elif cmd == 'EXIST':
-            return 'true'
-        elif cmd == 'BEGINBLOCK':
-            return ''
-        elif cmd == 'ENDBLOCK':
-            return ''
-        elif cmd == 'STOP':
-            return ''
-        elif cmd == 'X_LOADTEMPLATEFILE':
-            return ''
-        return ''
-    
-    def command(self, command, *args):
-        return self.send_command(command, *args)
-    
-    def shutdown(self):
-        self._shutdown = True
-    
-    def __enter__(self):
-        return self
-    
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self.shutdown()
-        return False
-    
-    def get(self, key):
-        return self.send_command('GET', key)
-    
-    def set(self, key, value):
-        return self.send_command('SET', key, value)
-    
-    def subst(self, key, var, value):
-        return self.send_command('SUBST', key, var, value)
-    
-    def fget(self, key, flag):
-        return self.send_command('FGET', key, flag)
-    
-    def fset(self, key, flag, value):
-        return self.send_command('FSET', key, flag, value)
-    
-    def input(self, priority, key):
-        return self.send_command('INPUT', priority, key)
-    
-    def go(self):
-        return self.send_command('GO')
-    
-    def progress(self, command, *args):
-        return self.send_command('PROGRESS', command, *args)
-UBIQUITY_DEBCONF_PATCH
-    echo -e "${GREEN}[NEKO]${NC} debconfcommunicator.py patched successfully!"
-else
-    echo -e "${CYAN}[NEKO]${NC} Warning: debconfcommunicator.py not found"
-fi
+sequence:
+    - show:
+        - welcome
+        - locale
+        - keyboard
+        - partition
+        - users
+        - summary
+    - exec:
+        - partition
+        - mount
+        - unpackfs
+        - machineid
+        - fstab
+        - locale
+        - keyboard
+        - localecfg
+        - users
+        - displaymanager
+        - networkcfg
+        - hwclock
+        - grubcfg
+        - bootloader
+        - umount
+    - show:
+        - finished
 
-# Fix debconf database for live environment
-echo -e "${CYAN}[NEKO]${NC} Initializing debconf database for installer..."
-debconf-set-selections <<EOF
-debconf debconf/frontend select Noninteractive
-debconf debconf/priority select critical
-EOF
+CALAMARES_SETTINGS
 
-# Initialize debconf database properly
-dpkg-reconfigure -f noninteractive debconf 2>/dev/null || true
+# Create module configuration files
+cat > /etc/calamares/modules/welcome.conf << 'MODULE_WELCOME'
+---
+showSupportUrl: false
+showKnownIssuesUrl: false
+showReleaseNotesUrl: false
+showDonateUrl: false
 
-# Create a script to fix debconf in the live session
-mkdir -p /usr/local/sbin
-cat > /usr/local/sbin/fix-debconf-live.sh << 'DEBCONF_FIX'
+# Requirements checking - set all to false to allow installation in any environment
+requirements:
+    requiredStorage: 5
+    requiredRam: 1.0
+    internetCheckUrl: ""
+    check:
+        - storage
+        - ram
+        - root
+    required:
+        - storage
+        - ram
+        - root
+
+# GeoIP disabled
+geoip:
+    style: "none"
+MODULE_WELCOME
+
+cat > /etc/calamares/modules/locale.conf << 'MODULE_LOCALE'
+---
+localeGenPath: /etc/locale.gen
+LANG: en_US.UTF-8
+LC_NUMERIC: en_US.UTF-8
+LC_TIME: en_US.UTF-8
+LC_MONETARY: en_US.UTF-8
+LC_PAPER: en_US.UTF-8
+LC_NAME: en_US.UTF-8
+LC_ADDRESS: en_US.UTF-8
+LC_TELEPHONE: en_US.UTF-8
+LC_MEASUREMENT: en_US.UTF-8
+LC_IDENTIFICATION: en_US.UTF-8
+MODULE_LOCALE
+
+cat > /etc/calamares/modules/keyboard.conf << 'MODULE_KEYBOARD'
+---
+Model: pc105
+Layout: us
+Variant: ''
+OPTIONS: ''
+MODULE_KEYBOARD
+
+cat > /etc/calamares/modules/partition.conf << 'MODULE_PARTITION'
+---
+efiSystemPartition: /boot/efi
+efiSystemPartitionSize: 512M
+efiSystemPartitionName: EFI
+
+userSwapChoices:
+    - none
+    - small
+    - suspend
+    - file
+
+drawNestedPartitions: false
+alwaysShowPartitionLabels: true
+allowManualPartitioning: true
+
+initialPartitioningChoice: erase
+initialSwapChoice: small
+
+defaultFileSystemType: ext4
+availableFileSystemTypes:
+    - ext4
+    - btrfs
+    - xfs
+
+MODULE_PARTITION
+
+cat > /etc/calamares/modules/users.conf << 'MODULE_USERS'
+---
+defaultGroups:
+    - name: sudo
+      must_exist: true
+      system: true
+    - name: cdrom
+      must_exist: false
+      system: true
+    - name: floppy
+      must_exist: false
+      system: true
+    - name: audio
+      must_exist: false
+      system: true
+    - name: dip
+      must_exist: false
+      system: true
+    - name: video
+      must_exist: false
+      system: true
+    - name: plugdev
+      must_exist: false
+      system: true
+    - name: netdev
+      must_exist: false
+      system: true
+    - name: lpadmin
+      must_exist: false
+      system: true
+
+autologinGroup: autologin
+sudoersGroup: sudo
+setRootPassword: true
+doAutologin: false
+MODULE_USERS
+
+cat > /etc/calamares/modules/displaymanager.conf << 'MODULE_DM'
+---
+displaymanagers:
+  - lightdm
+defaultSession: xfce
+SESSION: xfce
+MODULE_DM
+
+cat > /etc/calamares/modules/grubcfg.conf << 'MODULE_GRUB'
+---
+installEfi: true
+installMbr: true
+MODULE_GRUB
+
+cat > /etc/calamares/modules/bootloader.conf << 'MODULE_BL'
+---
+efiBootLoader: grub
+kernel: /vmlinuz-linux
+img: /initramfs-linux.img
+fallback: /initramfs-linux-fallback.img
+timeout: 5
+grubInstall: grub-install
+grubMkconfig: grub-mkconfig
+grubCfg: /boot/grub/grub.cfg
+grubProbe: grub-probe
+efiBootloaderId: NekoDevOS
+installEFIFallback: true
+MODULE_BL
+
+# Create unpackfs configuration (CRITICAL - tells Calamares where the squashfs is)
+# Casper mounts the ISO at /cdrom or /run/live/medium
+cat > /etc/calamares/modules/unpackfs.conf << 'MODULE_UNPACKFS'
+---
+unpack:
+  - source: /cdrom/casper/filesystem.squashfs
+    sourcefs: squashfs
+    destination: ""
+    weight: 4
+  - source: /run/live/medium/casper/filesystem.squashfs
+    sourcefs: squashfs
+    destination: ""
+    weight: 4
+    condition: "not exists /cdrom/casper/filesystem.squashfs"
+MODULE_UNPACKFS
+
+# Create a script to find and symlink the squashfs at boot
+mkdir -p /usr/lib/live/config
+cat > /usr/lib/live/config/9999-fix-squashfs-path.sh << 'FIXSQUASH'
 #!/bin/bash
-# Fix debconf for live session installer
-export DEBIAN_FRONTEND=noninteractive
-export DEBCONF_NONINTERACTIVE_SEEN=true
-export DEBCONF_NOWARNINGS=yes
-
-# Ensure debconf database directory exists and is writable
-if [ ! -d /var/cache/debconf ]; then
-    mkdir -p /var/cache/debconf
+# Ensure squashfs is accessible at expected path
+if [ ! -f /cdrom/casper/filesystem.squashfs ]; then
+    if [ -f /run/live/medium/casper/filesystem.squashfs ]; then
+        mkdir -p /cdrom/casper
+        ln -sf /run/live/medium/casper/filesystem.squashfs /cdrom/casper/filesystem.squashfs
+    elif [ -f /lib/live/mount/medium/casper/filesystem.squashfs ]; then
+        mkdir -p /cdrom/casper
+        ln -sf /lib/live/mount/medium/casper/filesystem.squashfs /cdrom/casper/filesystem.squashfs
+    fi
 fi
+FIXSQUASH
+chmod +x /usr/lib/live/config/9999-fix-squashfs-path.sh
 
-# Ensure proper permissions
-chmod 755 /var/cache/debconf 2>/dev/null || true
+# Also run fix at calamares start via the launcher
+cat > /usr/local/bin/fix-squashfs-path << 'FIXSQUASH2'
+#!/bin/bash
+# Ensure squashfs is accessible at expected path before Calamares starts
+for src in /run/live/medium/casper/filesystem.squashfs \
+           /lib/live/mount/medium/casper/filesystem.squashfs \
+           /live/image/casper/filesystem.squashfs; do
+    if [ -f "$src" ]; then
+        mkdir -p /cdrom/casper
+        ln -sf "$src" /cdrom/casper/filesystem.squashfs 2>/dev/null || true
+        break
+    fi
+done
+FIXSQUASH2
+chmod +x /usr/local/bin/fix-squashfs-path
 
-# Create minimal debconf database if it doesn't exist
-if [ ! -f /var/cache/debconf/config.dat ]; then
-    touch /var/cache/debconf/config.dat
-    touch /var/cache/debconf/passwords.dat
-    touch /var/cache/debconf/templates.dat
-    chmod 644 /var/cache/debconf/config.dat
-    chmod 600 /var/cache/debconf/passwords.dat
-    chmod 644 /var/cache/debconf/templates.dat
+# Create mount configuration
+cat > /etc/calamares/modules/mount.conf << 'MODULE_MOUNT'
+---
+extraMounts:
+  - device: proc
+    fs: proc
+    mountPoint: /proc
+  - device: sys
+    fs: sysfs
+    mountPoint: /sys
+  - device: /dev
+    mountPoint: /dev
+    options: bind
+  - device: tmpfs
+    fs: tmpfs
+    mountPoint: /run
+  - device: /run/udev
+    mountPoint: /run/udev
+    options: bind
+btrfsSubvolumes:
+  - mountPoint: /
+    subvolume: /@
+  - mountPoint: /home
+    subvolume: /@home
+mountOptions:
+  - filesystem: default
+    options: [ defaults, noatime ]
+  - filesystem: btrfs
+    options: [ defaults, noatime, compress=zstd ]
+MODULE_MOUNT
+
+# Create machineid configuration
+cat > /etc/calamares/modules/machineid.conf << 'MODULE_MACHINEID'
+---
+systemd: true
+dbus: true
+symlink: true
+MODULE_MACHINEID
+
+# Create fstab configuration
+cat > /etc/calamares/modules/fstab.conf << 'MODULE_FSTAB'
+---
+mountOptions:
+  default: defaults,noatime
+  btrfs: defaults,noatime,compress=zstd
+ssdExtraMountOptions:
+  btrfs: discard=async,ssd
+crypttabOptions: luks
+MODULE_FSTAB
+
+# Create localecfg configuration
+cat > /etc/calamares/modules/localecfg.conf << 'MODULE_LOCALECFG'
+---
+# No specific configuration needed, uses defaults
+MODULE_LOCALECFG
+
+# Create networkcfg configuration
+cat > /etc/calamares/modules/networkcfg.conf << 'MODULE_NETWORKCFG'
+---
+# NetworkManager is used by default
+MODULE_NETWORKCFG
+
+# Create hwclock configuration  
+cat > /etc/calamares/modules/hwclock.conf << 'MODULE_HWCLOCK'
+---
+hwclock: utc
+MODULE_HWCLOCK
+
+# Create finished configuration
+cat > /etc/calamares/modules/finished.conf << 'MODULE_FINISHED'
+---
+restartNowEnabled: true
+restartNowChecked: true
+restartNowCommand: "systemctl reboot"
+notifyOnFinished: true
+MODULE_FINISHED
+
+# Create branding configuration
+mkdir -p /etc/calamares/branding/nekodevos
+cat > /etc/calamares/branding/nekodevos/branding.desc << 'BRANDING'
+---
+componentName: nekodevos
+
+welcomeStyleCalamares: true
+welcomeExpandingLogo: false
+
+windowExpanding: noexpand
+windowSize: 900px,550px
+windowPlacement: center
+
+sidebar: widget
+
+strings:
+    productName:         NekoDevOS
+    shortProductName:    NekoDevOS
+    version:             1.0
+    shortVersion:        1.0
+    versionedName:       NekoDevOS 1.0
+    shortVersionedName:  NekoDevOS 1.0
+    bootloaderEntryName: NekoDevOS
+    productUrl:          https://github.com/hinatanguyen/NekoDevOS
+    supportUrl:          https://github.com/hinatanguyen/NekoDevOS/issues
+    knownIssuesUrl:      https://github.com/hinatanguyen/NekoDevOS/issues
+    releaseNotesUrl:     https://github.com/hinatanguyen/NekoDevOS/releases
+
+images:
+    productLogo:         "logo.png"
+    productIcon:         "icon.png"
+    productWelcome:      "wallpaper.png"
+
+slideshow:               "show.qml"
+slideshowAPI: 2
+
+style:
+   SidebarBackground:    "#331144"
+   SidebarText:          "#FFFFFF"
+   SidebarTextSelect:    "#331144"
+   SidebarTextHighlight: "#FF69B4"
+BRANDING
+
+# Create slideshow QML
+cat > /etc/calamares/branding/nekodevos/show.qml << 'SHOWQML'
+import QtQuick 2.0;
+import calamares.slideshow 1.0;
+
+Presentation
+{
+    id: presentation
+
+    Slide {
+        anchors.fill: parent
+        Rectangle {
+            anchors.fill: parent
+            color: "#331144"
+            Text {
+                anchors.centerIn: parent
+                text: "Installing NekoDevOS..."
+                color: "#FFFFFF"
+                font.pixelSize: 32
+            }
+        }
+    }
+}
+SHOWQML
+
+# Create basic placeholder images
+touch /etc/calamares/branding/nekodevos/{logo.png,wallpaper.png,icon.png}
+
+# Create a robust launcher script that chooses the right elevation method
+install -d /usr/local/bin
+cat > /usr/local/bin/launch-calamares << 'LAUNCH'
+#!/bin/bash
+# Don't use set -e here - we need all the elif checks to work properly
+
+# First, fix the squashfs path
+/usr/local/bin/fix-squashfs-path 2>/dev/null || true
+
+if command -v calamares_polkit >/dev/null 2>&1; then
+    exec calamares_polkit "$@"
+elif command -v pkexec >/dev/null 2>&1; then
+    exec pkexec /usr/bin/calamares "$@"
+else
+    # Fallback: try sudo if available
+    if command -v sudo >/dev/null 2>&1; then
+        exec sudo -E /usr/bin/calamares "$@"
+    else
+        # Last resort: run directly (may not have proper privileges)
+        exec /usr/bin/calamares "$@"
+    fi
 fi
+LAUNCH
+chmod +x /usr/local/bin/launch-calamares
 
-# Clear any corrupted debconf state
-rm -f /var/cache/debconf/*.dat-old 2>/dev/null || true
+# Create desktop launcher for Calamares
+mkdir -p /usr/share/applications
+cat > /usr/share/applications/calamares.desktop << 'CALAMARES_DESKTOP'
+[Desktop Entry]
+Version=1.0
+Type=Application
+Exec=/usr/local/bin/launch-calamares
+Name=Install NekoDevOS
+Comment=Install NekoDevOS to your computer
+Icon=system-software-install
+Terminal=false
+Categories=System;Settings;
+NoDisplay=false
+StartupNotify=true
+Keywords=installer;setup;system;install;NekoDevOS;
+X-GNOME-Autostart-enabled=false
+CALAMARES_DESKTOP
 
-# Reconfigure debconf
-dpkg-reconfigure -f noninteractive debconf 2>/dev/null || true
+# Ensure the desktop file is valid
+desktop-file-validate /usr/share/applications/calamares.desktop 2>/dev/null || true
 
-# Set debconf selections
-debconf-set-selections <<EOF
-debconf debconf/frontend select Noninteractive
-debconf debconf/priority select critical
-EOF
+# Create the installer icon on the live desktop
+mkdir -p /root/Desktop
+cp /usr/share/applications/calamares.desktop /root/Desktop/
+chmod +x /root/Desktop/calamares.desktop
 
-exit 0
-DEBCONF_FIX
+# Mark desktop file as trusted for XFCE (prevents "untrusted application" dialog)
+mkdir -p /root/.local/share/glib-2.0/schemas
+gio set /root/Desktop/calamares.desktop metadata::trusted true 2>/dev/null || true
 
-chmod +x /usr/local/sbin/fix-debconf-live.sh
+# Create launcher for all users (in case multiple users boot the live session)
+mkdir -p /etc/skel/Desktop
+cp /usr/share/applications/calamares.desktop /etc/skel/Desktop/
+chmod +x /etc/skel/Desktop/calamares.desktop
 
-# Create systemd service to run debconf fix before installer
-cat > /etc/systemd/system/fix-debconf-live.service << 'SYSTEMD_SERVICE'
-[Unit]
-Description=Fix debconf for live session installer
-Before=ubiquity.service
-DefaultDependencies=no
+# Make sure Calamares binary is executable
+chmod +x /usr/bin/calamares
 
-[Service]
-Type=oneshot
-ExecStart=/usr/local/sbin/fix-debconf-live.sh
-RemainAfterExit=yes
+# Create Polkit rule to allow live user to run Calamares without password
+echo -e "${CYAN}[NEKO]${NC} Configuring Polkit for passwordless installer access..."
+mkdir -p /etc/polkit-1/rules.d
+cat > /etc/polkit-1/rules.d/49-nopasswd-calamares.rules << 'POLKIT_RULES'
+/* Allow members of the sudo group to run Calamares without authentication */
+polkit.addRule(function(action, subject) {
+    if (action.id == "com.github.calamares.calamares.pkexec.run" &&
+        subject.isInGroup("sudo")) {
+        return polkit.Result.YES;
+    }
+});
+POLKIT_RULES
 
-[Install]
-WantedBy=multi-user.target
-SYSTEMD_SERVICE
+# Also create a local authority file for older polkit versions
+mkdir -p /etc/polkit-1/localauthority/50-local.d
+cat > /etc/polkit-1/localauthority/50-local.d/calamares.pkla << 'POLKIT_PKLA'
+[Allow calamares without password]
+Identity=unix-group:sudo
+Action=com.github.calamares.calamares.pkexec.run
+ResultAny=yes
+ResultInactive=yes
+ResultActive=yes
+POLKIT_PKLA
 
-# Enable the service
-systemctl enable fix-debconf-live.service 2>/dev/null || true
+echo -e "${CYAN}[NEKO]${NC} Calamares installer desktop shortcut created."
 
 # Create a wrapper for ubiquity that fixes debconf before launching
 if [ -f /usr/bin/ubiquity ]; then
@@ -1575,6 +1859,10 @@ chown -R neko:neko /home/neko/.config/plank
 # Create desktop shortcuts by copying system desktop files
 mkdir -p /home/neko/Desktop
 
+# Copy Calamares installer desktop file (most important for live session!)
+cp /usr/share/applications/calamares.desktop /home/neko/Desktop/
+chmod +x /home/neko/Desktop/calamares.desktop
+
 # Copy Firefox desktop file
 cp /usr/share/applications/firefox.desktop /home/neko/Desktop/
 chmod +x /home/neko/Desktop/firefox.desktop
@@ -1648,6 +1936,7 @@ chmod -R u+x /home/neko/Desktop/*.desktop
 # Trust desktop files for the user
 mkdir -p /home/neko/.local/share
 cat > /home/neko/.local/share/trusted-launchers << 'EOF'
+/home/neko/Desktop/calamares.desktop
 /home/neko/Desktop/firefox.desktop
 /home/neko/Desktop/xfce4-terminal.desktop
 /home/neko/Desktop/thunar.desktop
@@ -1669,6 +1958,32 @@ Categories=Utility;
 X-GNOME-Autostart-enabled=true
 EOF
 chown -R neko:neko /home/neko/.config/autostart
+
+# Create script to trust desktop files on first boot
+cat > /home/neko/.local/bin/trust-desktop-files.sh << 'TRUSTSCRIPT'
+#!/bin/bash
+# Mark all desktop files on Desktop as trusted
+sleep 2  # Wait for desktop to fully initialize
+for f in /home/neko/Desktop/*.desktop; do
+    if [ -f "$f" ]; then
+        gio set "$f" metadata::trusted true 2>/dev/null || true
+        chmod +x "$f" 2>/dev/null || true
+    fi
+done
+TRUSTSCRIPT
+chmod +x /home/neko/.local/bin/trust-desktop-files.sh
+chown neko:neko /home/neko/.local/bin/trust-desktop-files.sh
+
+# Autostart the trust script
+cat > /home/neko/.config/autostart/trust-desktop.desktop << 'EOF'
+[Desktop Entry]
+Type=Application
+Name=Trust Desktop Files
+Exec=/home/neko/.local/bin/trust-desktop-files.sh
+NoDisplay=true
+X-GNOME-Autostart-enabled=true
+EOF
+chown neko:neko /home/neko/.config/autostart/trust-desktop.desktop
 
 # Create autostart script to set wallpaper (runs after XFCE starts)
 cat > /home/neko/.config/autostart/set-wallpaper.desktop << 'EOF'
