@@ -1,0 +1,86 @@
+# NekoDevOS Package List - OPTIMIZED FOR PERFORMANCE
+# Minimal packages for a fast, lightweight developer OS
+
+# ============================================================================
+# CORE SYSTEM PACKAGES
+# ============================================================================
+ubuntu-minimal
+casper
+discover
+laptop-detect
+network-manager
+grub-common
+grub-pc-bin
+grub2-common
+locales
+linux-generic
+
+# ============================================================================
+# DESKTOP ENVIRONMENT - XFCE (Minimal)
+# ============================================================================
+xfce4
+xfce4-terminal
+lightdm
+lightdm-gtk-greeter
+
+# ============================================================================
+# DISPLAY SERVER
+# ============================================================================
+xserver-xorg-core
+xserver-xorg-input-all
+
+# ============================================================================
+# ESSENTIAL DEVELOPMENT TOOLS
+# ============================================================================
+git
+vim
+python3
+python3-pip
+build-essential
+
+# ============================================================================
+# SYSTEM UTILITIES
+# ============================================================================
+thunar
+htop
+neofetch
+
+# Archive Tools
+unzip
+zip
+
+# ============================================================================
+# NETWORKING & INTERNET
+# ============================================================================
+firefox
+wget
+curl
+
+# ============================================================================
+# FONTS
+# ============================================================================
+fonts-noto
+fonts-noto-cjk
+
+# ============================================================================
+# NOTES
+# ============================================================================
+# Removed bloat packages:
+# - ubuntu-standard (adds many unnecessary services)
+# - xfce4-goodies (games and extra apps)
+# - Multiple terminals (kept only xfce4-terminal)
+# - Multiple file managers (kept only thunar)
+# - Heavy IDEs and apps
+# - Gaming packages (steam, lutris, wine)
+# - Office suites (libreoffice)
+# - Multiple browsers (kept only firefox)
+# - Communication apps (discord, telegram)
+# - Multimedia editors (gimp, inkscape, krita)
+# - Video recording tools
+# - Docker/containers (install manually if needed)
+# - Database clients
+# - Multiple programming languages (install as needed)
+# - Theme packs and customization tools
+# - preload, timeshift and heavy background services
+#
+# Users can install additional tools after boot using apt
